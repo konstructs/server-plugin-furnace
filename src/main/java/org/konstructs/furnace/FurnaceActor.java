@@ -33,6 +33,7 @@ public class FurnaceActor extends KonstructsActor {
                  if (block != null) {
                      if (block.getType().equals(BlockTypeId.fromString("org/konstructs/furnace/furnace"))) {
                          System.out.println("Clicked at thing");
+                         filter.getMessage().getSender().tell(new ConnectView(self(), View.EMPTY.add(new InventoryView(2, 2, 4, 4), Inventory.createEmpty(16))), self());
                      }
                  }
              }

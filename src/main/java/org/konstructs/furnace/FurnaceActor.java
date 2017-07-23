@@ -9,38 +9,53 @@ import konstructs.plugin.Config;
 import konstructs.plugin.KonstructsActor;
 import konstructs.plugin.PluginConstructor;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 
 public class FurnaceActor extends KonstructsActor {
 
+    static BlockTypeId FURNACE = BlockTypeId.fromString("org/konstructs/furnace/furnace");
+
     public FurnaceActor(ActorRef universe) {
         super(universe);
-        universe.tell(GetBlockFactory.MESSAGE, getSelf());
     }
 
     @Override
     public void onReceive(Object message) {
+        super.onReceive(message);
 
-        if(message instanceof BlockFactory) {
-            // factory = (BlockFactory)message;
-        } else if(message instanceof InteractTertiaryFilter) {
-             InteractTertiaryFilter filter = (InteractTertiaryFilter)message;
-             if (filter.getMessage().isWorldPhase()) {
-                 Block block = filter.getMessage().getBlockAtPosition();
-                 if (block != null) {
-                     if (block.getType().equals(BlockTypeId.fromString("org/konstructs/furnace/furnace"))) {
-                         System.out.println("Clicked at thing");
-                         filter.getMessage().getSender().tell(new ConnectView(self(), View.EMPTY.add(new InventoryView(2, 2, 4, 4), Inventory.createEmpty(16))), self());
-                     }
-                 }
-             }
-             filter.next(self());
-        } else {
-            super.onReceive(message); // Handle konstructs messages
+        System.out.println(message);
+    }
+
+    @Override
+    public void onInteractTertiaryFilter(InteractTertiaryFilter filter) {
+        System.out.println("foobar");
+        Block blockAtPosition = filter.getMessage().getBlockAtPosition();
+
+        // World phase is the 2nd phase where we know which world block the player has selected
+        if (filter.getMessage().isWorldPhase()) {
+
+            // Check if a block was selected, and if it's the correct one
+            if (blockAtPosition != null && blockAtPosition.getType().equals(FURNACE)) {
+
+                // Check if the block has an UUID, if not assign one
+                if (blockAtPosition.getId() == null) {
+                    blockAtPosition = blockAtPosition.withId(UUID.randomUUID());
+                }
+
+                // Create a props object for the child actor
+                Props furnaceActorViewProps = FurnaceViewActor.props(
+                        getUniverse(),
+                        filter.getMessage().getSender(),
+                        blockAtPosition.getId()
+                );
+
+                // Spawn the child actor, name it by the block ID
+                getContext().actorOf(furnaceActorViewProps, blockAtPosition.getId().toString());
+            }
         }
+
+        // Forward the block down in the filter chain
+        filter.nextWith(self(), filter.getMessage().withBlockAtPosition(blockAtPosition));
     }
 
     @PluginConstructor

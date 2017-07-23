@@ -13,6 +13,6 @@ compileJava {
 }
 
 dependencies {
-    compile group: 'org.konstructs', name: 'konstructs-server-api', version: '0.2.0'
+    compile group: 'org.konstructs', name: 'konstructs-server-api', version: '0.2.1-SNAPSHOT'
     compile group: 'org.konstructs', name: 'konstructs-server_2.12', version: '0.1.25-SNAPSHOT'
 }

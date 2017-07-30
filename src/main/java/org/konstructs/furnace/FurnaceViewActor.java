@@ -22,9 +22,6 @@ public class FurnaceViewActor extends KonstructsActor {
     private InventoryView inputView = new InventoryView(6, 2, 1, 1);
     private InventoryView fuelView = new InventoryView(2, 2, 1, 1);
     private InventoryView outputView = new InventoryView(4, 4, 1, 1);
-    private Stack inputStack = null;
-    private Stack fuelStack = null;
-    private Stack outputStack = null;
     private Map<InventoryId, InventoryView> inventoryViewMapping = new HashMap<>();
 
     private ActorRef player;
@@ -50,8 +47,8 @@ public class FurnaceViewActor extends KonstructsActor {
         if(message instanceof PutViewStack) {
             PutViewStack putViewStack = (PutViewStack)message;
             for (Map.Entry<InventoryId, InventoryView> e : inventoryViewMapping.entrySet()) {
-                if (e.getValue().contains(putViewStack.to())) {
-                    getUniverse().tell(new PutStackIntoSlot(blockId, e.getKey(), e.getValue().translate(putViewStack.to()), putViewStack.stack()), player);
+                if (e.getValue().contains(putViewStack.getPosition())) {
+                    getUniverse().tell(new PutStackIntoSlot(blockId, e.getKey(), e.getValue().translate(putViewStack.getPosition()), putViewStack.getStack()), player);
                     getUniverse().tell(new GetInventoriesView(blockId, inventoryViewMapping), player);
                 }
             }
@@ -59,8 +56,8 @@ public class FurnaceViewActor extends KonstructsActor {
         } else if (message instanceof RemoveViewStack) {
             RemoveViewStack removeViewStack = (RemoveViewStack)message;
             for (Map.Entry<InventoryId, InventoryView> e : inventoryViewMapping.entrySet()) {
-                if (e.getValue().contains(removeViewStack.from())) {
-                    getUniverse().tell(new RemoveStackFromSlot(blockId, e.getKey(), e.getValue().translate(removeViewStack.from()), removeViewStack.amount()), player);
+                if (e.getValue().contains(removeViewStack.getPosition())) {
+                    getUniverse().tell(new RemoveStackFromSlot(blockId, e.getKey(), e.getValue().translate(removeViewStack.getPosition()), removeViewStack.getAmount()), player);
                     getUniverse().tell(new GetInventoriesView(blockId, inventoryViewMapping), player);
                 }
             }
@@ -71,11 +68,11 @@ public class FurnaceViewActor extends KonstructsActor {
 
     @Override
     public void onReceive(Object message) {
-        if (message instanceof PutViewStack && outputView.contains(((PutViewStack)message).to())) {
-            player.tell(new ReceiveStack(((PutViewStack)message).stack()), getSelf());
+        if (message instanceof PutViewStack && outputView.contains(((PutViewStack)message).getPosition())) {
+            player.tell(new ReceiveStack(((PutViewStack)message).getStack()), getSelf());
         } else if (foo(message)) {
             // pass
-        } else if(CloseInventory$.MODULE$.equals(message)) {
+        } else if(message instanceof CloseView) {
             getContext().stop(getSelf());
         } else {
             super.onReceive(message);

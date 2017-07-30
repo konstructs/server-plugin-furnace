@@ -43,34 +43,11 @@ public class FurnaceViewActor extends KonstructsActor {
         getUniverse().tell(new GetInventoriesView(blockId, inventoryViewMapping), player);
     }
 
-    private boolean foo(Object message) {
-        if(message instanceof PutViewStack) {
-            PutViewStack putViewStack = (PutViewStack)message;
-            for (Map.Entry<InventoryId, InventoryView> e : inventoryViewMapping.entrySet()) {
-                if (e.getValue().contains(putViewStack.getPosition())) {
-                    getUniverse().tell(new PutStackIntoSlot(blockId, e.getKey(), e.getValue().translate(putViewStack.getPosition()), putViewStack.getStack()), player);
-                    getUniverse().tell(new GetInventoriesView(blockId, inventoryViewMapping), player);
-                }
-            }
-            return true;
-        } else if (message instanceof RemoveViewStack) {
-            RemoveViewStack removeViewStack = (RemoveViewStack)message;
-            for (Map.Entry<InventoryId, InventoryView> e : inventoryViewMapping.entrySet()) {
-                if (e.getValue().contains(removeViewStack.getPosition())) {
-                    getUniverse().tell(new RemoveStackFromSlot(blockId, e.getKey(), e.getValue().translate(removeViewStack.getPosition()), removeViewStack.getAmount()), player);
-                    getUniverse().tell(new GetInventoriesView(blockId, inventoryViewMapping), player);
-                }
-            }
-            return true;
-        }
-        return false;
-    }
-
     @Override
     public void onReceive(Object message) {
         if (message instanceof PutViewStack && outputView.contains(((PutViewStack)message).getPosition())) {
             player.tell(new ReceiveStack(((PutViewStack)message).getStack()), getSelf());
-        } else if (foo(message)) {
+        } else if (View.manageViewMessagesForInventories(message, blockId, inventoryViewMapping, getUniverse(), player)) {
             // pass
         } else if(message instanceof CloseView) {
             getContext().stop(getSelf());

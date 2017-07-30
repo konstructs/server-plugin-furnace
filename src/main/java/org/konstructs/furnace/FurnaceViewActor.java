@@ -3,8 +3,11 @@ package org.konstructs.furnace;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import konstructs.api.*;
+import konstructs.api.messages.*;
 import konstructs.plugin.KonstructsActor;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class FurnaceViewActor extends KonstructsActor {
@@ -22,63 +25,58 @@ public class FurnaceViewActor extends KonstructsActor {
     private Stack inputStack = null;
     private Stack fuelStack = null;
     private Stack outputStack = null;
+    private Map<InventoryId, InventoryView> inventoryViewMapping = new HashMap<>();
 
     private ActorRef player;
+    private UUID blockId;
+
+    private static final InventoryId INV_FUEL = InventoryId.fromString("org/konstructs/FUEL");
 
     public FurnaceViewActor(ActorRef universe, ActorRef player, UUID blockId) {
         super(universe);
 
         this.player = player;
-        player.tell(new ConnectView(self(), createView()), self());
+        this.blockId = blockId;
+
+        inventoryViewMapping.put(InventoryId.INPUT, inputView);
+        inventoryViewMapping.put(InventoryId.OUTPUT, outputView);
+        inventoryViewMapping.put(INV_FUEL, fuelView);
+
+        player.tell(new ConnectView(getSelf(), View.EMPTY), getSelf());
+        getUniverse().tell(new GetInventoriesView(blockId, inventoryViewMapping), player);
     }
 
-    public View createView() {
-        return View.EMPTY
-                .add(inputView, inputStack)
-                .add(fuelView, fuelStack)
-                .add(outputView, outputStack);
-    }
-
-    public void updateView() {
-        player.tell(new UpdateView(createView()), getSelf());
+    private boolean foo(Object message) {
+        if(message instanceof PutViewStack) {
+            PutViewStack putViewStack = (PutViewStack)message;
+            for (Map.Entry<InventoryId, InventoryView> e : inventoryViewMapping.entrySet()) {
+                if (e.getValue().contains(putViewStack.to())) {
+                    getUniverse().tell(new PutStackIntoSlot(blockId, e.getKey(), e.getValue().translate(putViewStack.to()), putViewStack.stack()), player);
+                    getUniverse().tell(new GetInventoriesView(blockId, inventoryViewMapping), player);
+                }
+            }
+            return true;
+        } else if (message instanceof RemoveViewStack) {
+            RemoveViewStack removeViewStack = (RemoveViewStack)message;
+            for (Map.Entry<InventoryId, InventoryView> e : inventoryViewMapping.entrySet()) {
+                if (e.getValue().contains(removeViewStack.from())) {
+                    getUniverse().tell(new RemoveStackFromSlot(blockId, e.getKey(), e.getValue().translate(removeViewStack.from()), removeViewStack.amount()), player);
+                    getUniverse().tell(new GetInventoriesView(blockId, inventoryViewMapping), player);
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     @Override
     public void onReceive(Object message) {
-        if (message instanceof PutViewStack) {
-            PutViewStack putViewStack = (PutViewStack)message;
-            Stack stack = putViewStack.stack();
-            int pos = putViewStack.to();
-
-            if (inputView.contains(pos)) {
-                if (inputStack == null) {
-                    inputStack = stack;
-                } else {
-                    if (inputStack.canAcceptPartOf(stack)) {
-                        AcceptResult<Stack> stackAcceptResult = inputStack.acceptPartOf(stack);
-                        if (stackAcceptResult.getGiving() != null) {
-                            player.tell(new ReceiveStack(stackAcceptResult.getGiving()), self());
-                        }
-                        inputStack = stackAcceptResult.getAccepting();
-                    } else {
-                        player.tell(new ReceiveStack(inputStack), self());
-                        inputStack = stack;
-                    }
-                }
-            } else if (outputView.contains(pos)) {
-                player.tell(new ReceiveStack(stack), self());
-            } else if (fuelView.contains(pos)) {
-                player.tell(new ReceiveStack(stack), self()); // TODO
-            }
-
-            updateView();
-
-        } else if(message instanceof RemoveViewStack) {
-            // TODO
-            RemoveViewStack removeViewStack = (RemoveViewStack)message;
-            Stack sendStack = inputStack.take(removeViewStack.amount());
-            player.tell(new ReceiveStack(sendStack), self());
-            inputStack = inputStack.drop(removeViewStack.amount());
+        if (message instanceof PutViewStack && outputView.contains(((PutViewStack)message).to())) {
+            player.tell(new ReceiveStack(((PutViewStack)message).stack()), getSelf());
+        } else if (foo(message)) {
+            // pass
+        } else if(CloseInventory$.MODULE$.equals(message)) {
+            getContext().stop(getSelf());
         } else {
             super.onReceive(message);
         }

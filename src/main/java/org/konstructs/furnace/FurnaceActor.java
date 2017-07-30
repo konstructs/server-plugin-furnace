@@ -20,15 +20,7 @@ public class FurnaceActor extends KonstructsActor {
     }
 
     @Override
-    public void onReceive(Object message) {
-        super.onReceive(message);
-
-        System.out.println(message);
-    }
-
-    @Override
     public void onInteractTertiaryFilter(InteractTertiaryFilter filter) {
-        System.out.println("foobar");
         Block blockAtPosition = filter.getMessage().getBlockAtPosition();
 
         // World phase is the 2nd phase where we know which world block the player has selected
@@ -37,25 +29,39 @@ public class FurnaceActor extends KonstructsActor {
             // Check if a block was selected, and if it's the correct one
             if (blockAtPosition != null && blockAtPosition.getType().equals(FURNACE)) {
 
-                // Check if the block has an UUID, if not assign one
+                // Check if the block has an UUID, if not assign one and setup inventories
                 if (blockAtPosition.getId() == null) {
                     blockAtPosition = blockAtPosition.withId(UUID.randomUUID());
+
+                    CreateInventory inputInventory =
+                            new CreateInventory(blockAtPosition.getId(), InventoryId.INPUT, 1);
+                    CreateInventory outputInventory =
+                            new CreateInventory(blockAtPosition.getId(), InventoryId.OUTPUT, 1);
+                    CreateInventory fuelInventory =
+                            new CreateInventory(blockAtPosition.getId(),
+                                    InventoryId.fromString("org/konstructs/FUEL"), 1);
+
+                    getUniverse().tell(inputInventory, getSelf());
+                    getUniverse().tell(outputInventory, getSelf());
+                    getUniverse().tell(fuelInventory, getSelf());
                 }
 
-                // Create a props object for the child actor
-                Props furnaceActorViewProps = FurnaceViewActor.props(
-                        getUniverse(),
-                        filter.getMessage().getSender(),
-                        blockAtPosition.getId()
-                );
-
-                // Spawn the child actor, name it by the block ID
-                getContext().actorOf(furnaceActorViewProps, blockAtPosition.getId().toString());
+                createActor(blockAtPosition.getId(), filter.getMessage().getSender());
             }
         }
 
         // Forward the block down in the filter chain
         filter.nextWith(self(), filter.getMessage().withBlockAtPosition(blockAtPosition));
+    }
+
+    private void createActor(UUID blockID, ActorRef sender) {
+        // Create a props object for the child actor
+        Props furnaceActorViewProps = FurnaceViewActor.props(
+                getUniverse(), sender, blockID
+        );
+
+        // Spawn the child actor, name it by the block ID
+        getContext().actorOf(furnaceActorViewProps, blockID.toString());
     }
 
     @PluginConstructor
